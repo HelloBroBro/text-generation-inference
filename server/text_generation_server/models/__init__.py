@@ -54,6 +54,9 @@ try:
     from text_generation_server.models.flash_llama import (
         FlashLlama,
     )
+    from text_generation_server.models.flash_qwen2 import (
+        FlashQwen2,
+    )
     from text_generation_server.models.flash_gemma import (
         FlashGemma,
     )
@@ -64,6 +67,7 @@ try:
     from text_generation_server.models.flash_mistral import FlashMistral
     from text_generation_server.models.flash_mixtral import FlashMixtral
     from text_generation_server.models.flash_phi import FlashPhi
+    from text_generation_server.models.flash_starcoder2 import FlashStarcoder2
     from text_generation_server.utils.flash_attn import HAS_FLASH_ATTN_V2_CUDA
 
 except ImportError as e:
@@ -80,6 +84,8 @@ if FLASH_ATTENTION:
     __all__.append(FlashMistral)
     __all__.append(FlashMixtral)
     __all__.append(FlashPhi)
+    __all__.append(FlashQwen2)
+    __all__.append(FlashStarcoder2)
 
 MAMBA_AVAILABLE = True
 try:
@@ -176,6 +182,16 @@ def get_model(
 
     if model_type == "ssm":
         return Mamba(
+            model_id,
+            revision,
+            quantize=quantize,
+            use_medusa=use_medusa,
+            dtype=dtype,
+            trust_remote_code=trust_remote_code,
+        )
+
+    if model_id.startswith("facebook/galactica"):
+        return GalacticaSharded(
             model_id,
             revision,
             quantize=quantize,
@@ -327,9 +343,7 @@ def get_model(
                 trust_remote_code=trust_remote_code,
             )
         elif sharded:
-            raise NotImplementedError(
-                FLASH_ATT_ERROR_MESSAGE.format("Sharded Golden Gate")
-            )
+            raise NotImplementedError(FLASH_ATT_ERROR_MESSAGE.format("Sharded Gemma"))
         else:
             return CausalLM(
                 model_id,
@@ -387,6 +401,17 @@ def get_model(
                 dtype=dtype,
                 trust_remote_code=trust_remote_code,
             )
+        elif sharded:
+            raise NotImplementedError(FLASH_ATT_ERROR_MESSAGE.format("Sharded Mistral"))
+        else:
+            return CausalLM(
+                model_id,
+                revision,
+                quantize=quantize,
+                use_medusa=use_medusa,
+                dtype=dtype,
+                trust_remote_code=trust_remote_code,
+            )
 
     if model_type == "mixtral":
         sliding_window = config_dict.get("sliding_window", -1)
@@ -394,6 +419,67 @@ def get_model(
             (sliding_window is None or sliding_window == -1) and FLASH_ATTENTION
         ) or HAS_FLASH_ATTN_V2_CUDA:
             return FlashMixtral(
+                model_id,
+                revision,
+                quantize=quantize,
+                use_medusa=use_medusa,
+                dtype=dtype,
+                trust_remote_code=trust_remote_code,
+            )
+        elif sharded:
+            raise NotImplementedError(FLASH_ATT_ERROR_MESSAGE.format("Sharded Mixtral"))
+        else:
+            return CausalLM(
+                model_id,
+                revision,
+                quantize=quantize,
+                use_medusa=use_medusa,
+                dtype=dtype,
+                trust_remote_code=trust_remote_code,
+            )
+
+    if model_type == "starcoder2":
+        sliding_window = config_dict.get("sliding_window", -1)
+        if (
+            (sliding_window is None or sliding_window == -1) and FLASH_ATTENTION
+        ) or HAS_FLASH_ATTN_V2_CUDA:
+            return FlashStarcoder2(
+                model_id,
+                revision,
+                quantize=quantize,
+                dtype=dtype,
+                trust_remote_code=trust_remote_code,
+            )
+        elif sharded:
+            raise NotImplementedError(
+                FLASH_ATT_ERROR_MESSAGE.format("Sharded Starcoder2")
+            )
+        else:
+            return CausalLM(
+                model_id,
+                revision,
+                quantize=quantize,
+                use_medusa=use_medusa,
+                dtype=dtype,
+                trust_remote_code=trust_remote_code,
+            )
+
+    if model_type == "qwen2":
+        sliding_window = config_dict.get("sliding_window", -1)
+        if (
+            (sliding_window is None or sliding_window == -1) and FLASH_ATTENTION
+        ) or HAS_FLASH_ATTN_V2_CUDA:
+            return FlashQwen2(
+                model_id,
+                revision,
+                quantize=quantize,
+                dtype=dtype,
+                trust_remote_code=trust_remote_code,
+            )
+        elif sharded:
+            raise NotImplementedError(FLASH_ATT_ERROR_MESSAGE.format("Sharded Qwen2"))
+        else:
+            return CausalLM(
                 model_id,
                 revision,
                 quantize=quantize,
