@@ -2,21 +2,21 @@ import pytest
 
 
 @pytest.fixture(scope="module")
-def flash_gemma_handle(launcher):
-    with launcher("google/gemma-2b", num_shard=1) as handle:
+def flash_gemma_gptq_handle(launcher):
+    with launcher("TechxGenus/gemma-2b-GPTQ", num_shard=1, quantize="gptq") as handle:
         yield handle
 
 
 @pytest.fixture(scope="module")
-async def flash_gemma(flash_gemma_handle):
-    await flash_gemma_handle.health(300)
-    return flash_gemma_handle.client
+async def flash_gemma_gptq(flash_gemma_gptq_handle):
+    await flash_gemma_gptq_handle.health(300)
+    return flash_gemma_gptq_handle.client
 
 
 @pytest.mark.asyncio
 @pytest.mark.private
-async def test_flash_gemma(flash_gemma, response_snapshot):
-    response = await flash_gemma.generate(
+async def test_flash_gemma_gptq(flash_gemma_gptq, response_snapshot):
+    response = await flash_gemma_gptq.generate(
         "Test request", max_new_tokens=10, decoder_input_details=True
     )
 
@@ -26,8 +26,8 @@ async def test_flash_gemma(flash_gemma, response_snapshot):
 
 @pytest.mark.asyncio
 @pytest.mark.private
-async def test_flash_gemma_all_params(flash_gemma, response_snapshot):
-    response = await flash_gemma.generate(
+async def test_flash_gemma_gptq_all_params(flash_gemma_gptq, response_snapshot):
+    response = await flash_gemma_gptq.generate(
         "Test request",
         max_new_tokens=10,
         repetition_penalty=1.2,
@@ -49,8 +49,12 @@ async def test_flash_gemma_all_params(flash_gemma, response_snapshot):
 
 @pytest.mark.asyncio
 @pytest.mark.private
-async def test_flash_gemma_load(flash_gemma, generate_load, response_snapshot):
-    responses = await generate_load(flash_gemma, "Test request", max_new_tokens=10, n=4)
+async def test_flash_gemma_gptq_load(
+    flash_gemma_gptq, generate_load, response_snapshot
+):
+    responses = await generate_load(
+        flash_gemma_gptq, "Test request", max_new_tokens=10, n=4
+    )
 
     assert len(responses) == 4
     assert all([r.generated_text == responses[0].generated_text for r in responses])
