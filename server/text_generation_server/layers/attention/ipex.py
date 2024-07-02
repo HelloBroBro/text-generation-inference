@@ -14,6 +14,7 @@ def attention(
     max_s,
     softmax_scale,
     window_size_left=-1,
+    causal=True,
 ):
     # We do not need to check window_size_left (not supported) here, so it is already checked ahead of time at model load.
     return ipex.llm.functional.varlen_attention(
@@ -28,7 +29,7 @@ def attention(
         0.0,
         softmax_scale,
         False,
-        True,
+        causal,
         False,
         None,
     )
@@ -54,7 +55,8 @@ def paged_attention(
     kv_head_mapping: torch.Tensor,
     softmax_scale: float,
     block_tables: torch.Tensor,
-    input_lengths: torch.Tensor,
+    cu_seqlen_q: torch.Tensor,
+    cu_seqlen_k: torch.Tensor,
     max_s: int,
 ):
     return ipex.llm.modules.PagedAttention.single_query_cached_kv_attention(
@@ -65,7 +67,7 @@ def paged_attention(
         kv_head_mapping,
         softmax_scale,
         block_tables,
-        input_lengths,
+        cu_seqlen_q,
         BLOCK_SIZE,
         max_s,
         None,
