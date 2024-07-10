@@ -11,10 +11,11 @@ use crate::kserve::{
 };
 use crate::validation::ValidationError;
 use crate::{
-    BestOfSequence, Details, ErrorResponse, FinishReason, GenerateParameters, GenerateRequest,
-    GenerateResponse, GrammarType, HubModelInfo, HubProcessorConfig, HubTokenizerConfig, Info,
-    Message, PrefillToken, SimpleToken, StreamDetails, StreamResponse, Token, TokenizeResponse,
-    Usage, Validation,
+    BestOfSequence, Details, ErrorResponse, FinishReason, FunctionName, GenerateParameters,
+    GenerateRequest, GenerateResponse, GrammarType, HubModelInfo, HubProcessorConfig,
+    HubTokenizerConfig, Info, Message, MessageChunk, MessageContent, OutputMessage, PrefillToken,
+    SimpleToken, StreamDetails, StreamResponse, TextMessage, Token, TokenizeResponse,
+    ToolCallDelta, ToolCallMessage, Url, Usage, Validation,
 };
 use crate::{
     ChatCompletion, ChatCompletionChoice, ChatCompletionChunk, ChatCompletionComplete,
@@ -562,8 +563,8 @@ request_body = CompletionRequest,
 responses(
 (status = 200, description = "Generated Chat Completion",
 content(
-("application/json" = Completion),
-("text/event-stream" = CompletionCompleteChunk),
+("application/json" = CompletionFinal),
+("text/event-stream" = Chunk),
 )),
 (status = 424, description = "Generation Error", body = ErrorResponse,
 example = json ! ({"error": "Request failed during generation"})),
@@ -1446,6 +1447,14 @@ pub async fn run(
     GrammarType,
     ChatRequest,
     Message,
+    MessageContent,
+    MessageChunk,
+    Url,
+    FunctionName,
+    OutputMessage,
+    TextMessage,
+    ToolCallMessage,
+    ToolCallDelta,
     ChatCompletionComplete,
     ChatCompletionChoice,
     ChatCompletionDelta,
