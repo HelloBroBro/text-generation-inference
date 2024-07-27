@@ -15,7 +15,6 @@ from text_generation_server.layers import (
     TensorParallelColumnLinear,
     TensorParallelEmbedding,
     SpeculativeHead,
-    get_linear,
 )
 from text_generation_server.layers.rotary import PositionRotaryEmbedding
 from text_generation_server.layers.layernorm import (
@@ -262,6 +261,9 @@ class Qwen2Layer(nn.Module):
 class Qwen2Model(torch.nn.Module):
     def __init__(self, prefix: str, config, weights):
         super().__init__()
+
+        prefix = f"{prefix}.model" if prefix else "model"
+
         process_group = weights.process_group
         self.tp_rank = process_group.rank()
         self.tp_world_size = process_group.size()
@@ -335,15 +337,16 @@ class Qwen2ForCausalLM(torch.nn.Module):
     def __init__(self, prefix: str, config, weights):
         super().__init__()
 
-        if not prefix:
-            prefix = "model"
-        else:
-            prefix = f"{prefix}.model"
-
         self.model = Qwen2Model(prefix, config, weights)
+
+        if config.tie_word_embeddings:
+            suffix = "model.embed_tokens"
+        else:
+            suffix = "lm_head"
+
         self.lm_head = SpeculativeHead.load(
             config,
-            prefix="lm_head",
+            prefix=f"{prefix}.{suffix}" if prefix else suffix,
             weights=weights,
         )
         self.max_past = config.sliding_window
