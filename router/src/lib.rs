@@ -619,7 +619,7 @@ impl ChatCompletion {
                 message,
                 logprobs: return_logprobs
                     .then(|| ChatCompletionLogprobs::from((details.tokens, details.top_tokens))),
-                finish_reason: details.finish_reason.to_string(),
+                finish_reason: details.finish_reason.format(true),
             }],
             usage: Usage {
                 prompt_tokens: details.prefill.len() as u32,
@@ -1117,6 +1117,15 @@ impl std::fmt::Display for FinishReason {
     }
 }
 
+impl FinishReason {
+    pub fn format(&self, use_stop: bool) -> String {
+        match self {
+            FinishReason::EndOfSequenceToken if use_stop => "stop".to_string(),
+            _ => self.to_string(),
+        }
+    }
+}
+
 #[derive(Serialize, ToSchema)]
 pub(crate) struct BestOfSequence {
     #[schema(example = "test")]
@@ -1155,6 +1164,12 @@ pub(crate) struct GenerateResponse {
     pub generated_text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<Details>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub(crate) struct ChatTokenizeResponse {
+    pub(crate) tokenize_response: TokenizeResponse,
+    pub(crate) templated_text: String,
 }
 
 #[derive(Serialize, ToSchema)]
