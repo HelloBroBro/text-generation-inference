@@ -1,6 +1,9 @@
 import torch
 from text_generation_server.utils.import_utils import SYSTEM
-from text_generation_server.models.globals import FLASH_DECODING, BLOCK_SIZE
+from text_generation_server.models.globals import (
+    ATTENTION,
+    BLOCK_SIZE,
+)
 from text_generation_server.layers.attention import Seqlen
 from typing import Optional
 
@@ -23,7 +26,7 @@ def reshape_and_cache(
     value_cache: torch.Tensor,
     slots: torch.Tensor,
 ):
-    if FLASH_DECODING:
+    if ATTENTION in {"flashdecoding", "flashinfer"}:
         shape = key_cache.shape
         key_cache.view(-1, shape[-2], shape[-1])[slots] = key
         value_cache.view(-1, shape[-2], shape[-1])[slots] = value
@@ -72,7 +75,16 @@ def paged_attention(
     # V1 to avoid the overhead of reduction. Also, if the number of
     # sequences or heads is large, we use V1 since there is enough work
     # to parallelize.
-    if FLASH_DECODING:
+    if ATTENTION == "flashinfer":
+        from text_generation_server.layers.attention.flash_infer import decode_state
+
+        return decode_state.get().forward(
+            query.contiguous(),
+            paged_kv_cache=(key_cache, value_cache),
+            logits_soft_cap=softcap,
+            sm_scale=softmax_scale,
+        )
+    elif ATTENTION == "flashdecoding":
         max_q = 1
         max_k = max_s
         import flash_attn_2_cuda
@@ -206,7 +218,32 @@ except ImportError:
 
 SUPPORTS_WINDOWING = V2
 
-if V2:
+if ATTENTION == "flashinfer":
+
+    def attention(
+        q,
+        k,
+        v,
+        cu_seqlens,
+        max_s,
+        softmax_scale,
+        window_size_left=-1,
+        causal=True,
+        softcap=0.0,
+    ):
+        from text_generation_server.layers.attention.flash_infer import prefill_state
+
+        return prefill_state.get().forward(
+            q,
+            k,
+            v,
+            causal=causal,
+            window_left=window_size_left,
+            logits_soft_cap=softcap,
+            sm_scale=softmax_scale,
+        )
+
+elif V2:
 
     def attention(
         q,
