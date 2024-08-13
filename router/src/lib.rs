@@ -1016,8 +1016,10 @@ impl MessageContent {
     pub fn push(&mut self, chunk: MessageChunk) {
         match self {
             MessageContent::SingleText(text) => {
-                *self =
-                    MessageContent::MultipleChunks(vec![MessageChunk::Text { text: text.clone() }]);
+                *self = MessageContent::MultipleChunks(vec![
+                    MessageChunk::Text { text: text.clone() },
+                    chunk,
+                ]);
             }
             MessageContent::MultipleChunks(chunks) => {
                 chunks.push(chunk);
@@ -1219,6 +1221,8 @@ pub(crate) struct StreamDetails {
     pub generated_tokens: u32,
     #[schema(nullable = true, example = 42)]
     pub seed: Option<u64>,
+    #[schema(example = 1)]
+    pub input_length: u32,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -1344,6 +1348,35 @@ mod tests {
                 name: None
             }
         );
+    }
+
+    #[test]
+    fn test_message_content_append() {
+        let mut content = MessageContent::SingleText("Initial text".to_string());
+        let chunk = MessageChunk::Text {
+            text: "Additional text".to_string(),
+        };
+
+        content.push(chunk);
+
+        match content {
+            MessageContent::MultipleChunks(chunks) => {
+                assert_eq!(chunks.len(), 2);
+                assert_eq!(
+                    chunks[0],
+                    MessageChunk::Text {
+                        text: "Initial text".to_string()
+                    }
+                );
+                assert_eq!(
+                    chunks[1],
+                    MessageChunk::Text {
+                        text: "Additional text".to_string()
+                    }
+                );
+            }
+            _ => panic!("Expected MultipleChunks, but got a different variant"),
+        }
     }
 
     #[test]
