@@ -1,5 +1,9 @@
 {
   inputs = {
+    crate2nix = {
+      url = "github:nix-community/crate2nix";
+      inputs.nixpkgs.follows = "tgi-nix/nixpkgs";
+    };
     tgi-nix.url = "github:danieldk/tgi-nix";
     nixpkgs.follows = "tgi-nix/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
@@ -12,6 +16,7 @@
   outputs =
     {
       self,
+      crate2nix,
       nixpkgs,
       flake-utils,
       rust-overlay,
@@ -21,6 +26,10 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
+        cargoNix = crate2nix.tools.${system}.appliedCargoNix {
+          name = "tgi";
+          src = ./.;
+        };
         config = {
           allowUnfree = true;
           cudaSupport = true;
@@ -57,6 +66,7 @@
                 venvShellHook
                 pip
 
+                causal-conv1d
                 click
                 einops
                 fbgemm-gpu
@@ -70,6 +80,7 @@
                 grpcio-tools
                 hf-transfer
                 loguru
+                mamba-ssm
                 marlin-kernels
                 opentelemetry-api
                 opentelemetry-exporter-otlp
@@ -81,10 +92,9 @@
                 transformers
                 vllm
 
+                cargoNix.workspaceMembers.text-generation-launcher.build 
+
                 (callPackage ./router.nix {
-                  inherit (rustPlatform) buildRustPackage importCargoLock;
-                })
-                (callPackage ./_launcher.nix {
                   inherit (rustPlatform) buildRustPackage importCargoLock;
                 })
               ]);
