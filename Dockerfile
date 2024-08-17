@@ -40,14 +40,14 @@ RUN cargo build --profile release-opt
 
 # Python builder
 # Adapted from: https://github.com/pytorch/pytorch/blob/master/Dockerfile
-FROM nvidia/cuda:12.1.0-devel-ubuntu22.04 AS pytorch-install
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS pytorch-install
 
 # NOTE: When updating PyTorch version, beware to remove `pip install nvidia-nccl-cu12==2.22.3` below in the Dockerfile. Context: https://github.com/huggingface/text-generation-inference/pull/2099
 ARG PYTORCH_VERSION=2.4.0
 
 ARG PYTHON_VERSION=3.10
 # Keep in sync with `server/pyproject.toml
-ARG CUDA_VERSION=12.1
+ARG CUDA_VERSION=12.4
 ARG MAMBA_VERSION=24.3.0-0
 ARG CUDA_CHANNEL=nvidia
 ARG INSTALL_CHANNEL=pytorch
@@ -88,6 +88,7 @@ RUN case ${TARGETPLATFORM} in \
 FROM pytorch-install AS kernel-builder
 
 ARG MAX_JOBS=8
+ENV TORCH_CUDA_ARCH_LIST="8.0;8.6;9.0+PTX"
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ninja-build cmake \
@@ -118,7 +119,7 @@ FROM kernel-builder AS exllama-kernels-builder
 WORKDIR /usr/src
 COPY server/exllama_kernels/ .
 
-RUN TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX" python setup.py build
+RUN python setup.py build
 
 # Build Transformers exllama kernels
 FROM kernel-builder AS exllamav2-kernels-builder
@@ -126,21 +127,21 @@ WORKDIR /usr/src
 COPY server/Makefile-exllamav2/ Makefile
 
 # Build specific version of transformers
-RUN TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX" make build-exllamav2
+RUN make build-exllamav2
 
 # Build Transformers awq kernels
 FROM kernel-builder AS awq-kernels-builder
 WORKDIR /usr/src
 COPY server/Makefile-awq Makefile
 # Build specific version of transformers
-RUN TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX" make build-awq
+RUN make build-awq
 
 # Build eetq kernels
 FROM kernel-builder AS eetq-kernels-builder
 WORKDIR /usr/src
 COPY server/Makefile-eetq Makefile
 # Build specific version of transformers
-RUN TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX" make build-eetq
+RUN make build-eetq
 
 # Build Lorax Punica kernels
 FROM kernel-builder AS lorax-punica-builder
