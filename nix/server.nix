@@ -3,7 +3,9 @@
   buildPythonPackage,
   poetry-core,
   mypy-protobuf,
+  awq-inference-engine,
   causal-conv1d,
+  eetq,
   einops,
   exllamav2,
   fbgemm-gpu,
@@ -66,6 +68,8 @@ buildPythonPackage {
   pythonRemoveDeps = [ "scipy" ];
 
   dependencies = [
+    awq-inference-engine
+    eetq
     causal-conv1d
     einops
     exllamav2
