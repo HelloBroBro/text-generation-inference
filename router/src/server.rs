@@ -24,6 +24,7 @@ use crate::{
     VertexResponse,
 };
 use crate::{FunctionDefinition, HubPreprocessorConfig, ToolCall, ToolChoice, ToolType};
+use crate::{ModelInfo, ModelsInfo};
 use async_stream::__private::AsyncStream;
 use axum::extract::Extension;
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode};
@@ -117,6 +118,29 @@ async fn get_model_info(info: Extension<Info>) -> Json<Info> {
 }
 
 #[utoipa::path(
+get,
+tag = "Text Generation Inference",
+path = "/v1/models",
+responses(
+(status = 200, description = "Served model info", body = ModelInfo),
+(status = 404, description = "Model not found", body = ErrorResponse),
+)
+)]
+#[instrument(skip(info))]
+/// Get model info
+async fn openai_get_model_info(info: Extension<Info>) -> Json<ModelsInfo> {
+    Json(ModelsInfo {
+        data: vec![ModelInfo {
+            id: info.0.model_id.clone(),
+            object: "model".to_string(),
+            created: 0, // TODO: determine how to get this
+            owned_by: info.0.model_id.clone(),
+        }],
+        ..Default::default()
+    })
+}
+
+#[utoipa::path(
     post,
     tag = "Text Generation Inference",
     path = "/chat_tokenize",
@@ -158,6 +182,7 @@ async fn get_chat_tokenize(
 
     let generate_request = GenerateRequest {
         inputs,
+        add_special_tokens: false,
         parameters: GenerateParameters {
             best_of: None,
             temperature,
@@ -754,6 +779,7 @@ async fn completions(
         .iter()
         .map(|prompt| GenerateRequest {
             inputs: prompt.to_string(),
+            add_special_tokens: true,
             parameters: GenerateParameters {
                 best_of: None,
                 temperature,
@@ -1180,6 +1206,7 @@ async fn chat_completions(
     // build the request passing some parameters
     let generate_request = GenerateRequest {
         inputs: inputs.to_string(),
+        add_special_tokens: false,
         parameters: GenerateParameters {
             best_of: None,
             temperature,
@@ -1386,6 +1413,7 @@ async fn vertex_compatibility(
         .map(|instance| {
             let generate_request = GenerateRequest {
                 inputs: instance.inputs.clone(),
+                add_special_tokens: true,
                 parameters: GenerateParameters {
                     do_sample: true,
                     max_new_tokens: instance.parameters.as_ref().and_then(|p| p.max_new_tokens),
@@ -1501,6 +1529,7 @@ chat_completions,
 completions,
 tokenize,
 metrics,
+openai_get_model_info,
 ),
 components(
 schemas(
@@ -1553,6 +1582,7 @@ ToolCall,
 Function,
 FunctionDefinition,
 ToolChoice,
+ModelInfo,
 )
 ),
 tags(
@@ -2246,7 +2276,8 @@ async fn start(
         .route("/info", get(get_model_info))
         .route("/health", get(health))
         .route("/ping", get(health))
-        .route("/metrics", get(metrics));
+        .route("/metrics", get(metrics))
+        .route("/v1/models", get(openai_get_model_info));
 
     // Conditional AWS Sagemaker route
     let aws_sagemaker_route = if messages_api_enabled {

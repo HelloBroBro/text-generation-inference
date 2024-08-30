@@ -22,6 +22,16 @@ pub enum Attention {
     FlashInfer,
 }
 
+impl Attention {
+    pub fn block_size(&self) -> u32 {
+        match self {
+            Attention::FlashDecoding => 256,
+            Attention::FlashInfer => 1,
+            Attention::Paged => 16,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ParseError;
 
@@ -1072,6 +1082,16 @@ pub(crate) struct GenerateRequest {
     pub inputs: String,
     #[serde(default = "default_parameters")]
     pub parameters: GenerateParameters,
+
+    /// This is used internally because some requests
+    /// already contain the templated input therefore
+    /// we shouldn't add the special tokens.
+    #[serde(default = "default_true", skip)]
+    pub add_special_tokens: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, Deserialize, ToSchema)]
@@ -1089,6 +1109,7 @@ impl From<CompatGenerateRequest> for GenerateRequest {
     fn from(req: CompatGenerateRequest) -> Self {
         Self {
             inputs: req.inputs,
+            add_special_tokens: true,
             parameters: req.parameters,
         }
     }
@@ -1238,6 +1259,34 @@ pub(crate) struct StreamResponse {
 pub(crate) struct ErrorResponse {
     pub error: String,
     pub error_type: String,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub(crate) struct ModelInfo {
+    #[schema(example = "gpt2")]
+    pub id: String,
+    #[schema(example = "model")]
+    pub object: String,
+    #[schema(example = 1686935002)]
+    pub created: u64,
+    #[schema(example = "openai")]
+    pub owned_by: String,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub(crate) struct ModelsInfo {
+    #[schema(example = "list")]
+    pub object: String,
+    pub data: Vec<ModelInfo>,
+}
+
+impl Default for ModelsInfo {
+    fn default() -> Self {
+        ModelsInfo {
+            object: "list".to_string(),
+            data: Vec::new(),
+        }
+    }
 }
 
 #[cfg(test)]
