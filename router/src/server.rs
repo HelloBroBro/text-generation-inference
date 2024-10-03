@@ -1246,17 +1246,33 @@ async fn chat_completions(
             if let Value::Object(ref mut props) = arguments {
                 props.remove("_name");
             }
-
-            let tool_calls = vec![ToolCall {
-                id: "0".to_string(),
-                r#type: "function".to_string(),
-                function: FunctionDefinition {
-                    description: None,
-                    name,
-                    arguments,
-                },
-            }];
-            (Some(tool_calls), None)
+            match name.as_str() {
+                "notify_error" => {
+                    // parse the error message
+                    let error_message = arguments
+                        .get("error")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| {
+                            InferError::ToolError(
+                                "No error message found in generated text".to_string(),
+                            )
+                        })?
+                        .to_string();
+                    (None, Some(error_message))
+                }
+                _ => {
+                    let tool_calls = vec![ToolCall {
+                        id: "0".to_string(),
+                        r#type: "function".to_string(),
+                        function: FunctionDefinition {
+                            description: None,
+                            name,
+                            arguments,
+                        },
+                    }];
+                    (Some(tool_calls), None)
+                }
+            }
         } else {
             (None, Some(generation.generated_text))
         };
@@ -1936,6 +1952,11 @@ async fn start(
         "tgi_batch_current_max_tokens",
         metrics::Unit::Count,
         "Maximum tokens for the current batch"
+    );
+    metrics::describe_gauge!(
+        "tgi_batch_total_tokens",
+        metrics::Unit::Count,
+        "Maximum amount of tokens in total."
     );
     metrics::describe_histogram!(
         "tgi_request_max_new_tokens",
